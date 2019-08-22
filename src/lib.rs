@@ -283,7 +283,8 @@ impl Telnet {
     }
 
     ///
-    /// Writes a given data block to the remote host. It will double any IAC byte.
+    /// Writes a given data block to the remote host.
+    /// It will double any IAC byte if `detect_iac` is `true`
     ///
     /// # Examples
     /// ```rust,should_panic
@@ -292,20 +293,24 @@ impl Telnet {
     /// let mut connection = Telnet::connect(("127.0.0.1", 23), 256)
     ///         .expect("Couldn't connect to the server...");
     /// let buffer: [u8; 4] = [83, 76, 77, 84];
-    /// connection.write(&buffer).expect("Write Error");
+    /// connection.write(&buffer, true).expect("Write Error");
     /// ```
     ///
-    pub fn write(&mut self, data: &[u8]) -> io::Result<usize> {
+    pub fn write(&mut self, data: &[u8], detect_iac: bool) -> io::Result<usize> {
         let mut write_size = 0;
 
         let mut start = 0;
-        for i in 0..data.len() {
-            if data[i] == BYTE_IAC {
-                self.stream.write(&data[start .. i + 1])?;
-                self.stream.write(&[BYTE_IAC])?;
-                write_size = write_size + (i + 1 - start);
-                start = i + 1;
-            }
+
+        // Only double IAC bytes if detect_iac is true
+        if detect_iac {
+          for i in 0..data.len() {
+              if data[i] == BYTE_IAC {
+                  self.stream.write(&data[start .. i + 1])?;
+                  self.stream.write(&[BYTE_IAC])?;
+                  write_size = write_size + (i + 1 - start);
+                  start = i + 1;
+              }
+          }
         }
 
         if start < data.len() {
